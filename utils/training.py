@@ -27,7 +27,7 @@ import torch
 
 
 # Pytorch early stopping but not restoring best weights from last epoch
-earlystopping = EarlyStopping(monitor='train_loss', patience=10,
+earlystopping = EarlyStopping(monitor='train_loss', patience=20,
                               verbose=0, mode='min')
 class create_model(pl.LightningModule):
     def __init__(self, loss_fun, output, optimizer, learning_rate, eta, F0, nu):
@@ -39,7 +39,9 @@ class create_model(pl.LightningModule):
         self.linear2 = nn.Linear(64, 128)
         self.linear3 = nn.Linear(128, 64)
         self.linear4 = nn.Linear(64, self.d)
-        self.dropout = nn.Dropout(self.p)
+        self.dropout1 = nn.Dropout(self.p)
+        self.dropout3 = nn.Dropout(self.p)
+        self.dropout2 = nn.Dropout(self.p)
         self.learning_rate = learning_rate
         self.F0 = F0
         self.eta = eta
@@ -52,13 +54,13 @@ class create_model(pl.LightningModule):
         p = 0.05
         x = self.linear1(x)
         x = nn.ReLU()(x)
-        x = self.dropout(x)
+        x = self.dropout1(x)
         x = self.linear2(x)
         x = nn.ReLU()(x)
-        x = self.dropout(x)
+        x = self.dropout2(x)
         x = self.linear3(x)
         x = nn.ReLU()(x)
-        x = self.dropout(x)
+        x = self.dropout3(x)
         x = self.linear4(x)
         if self.output == 'relu':
             x = nn.ReLU()(x)
@@ -92,14 +94,14 @@ class create_model(pl.LightningModule):
         self.log_dict({'train_loss': loss}, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
-    def test_step(self, test_batch, batch_idx):
+    def validation_step(self, test_batch, batch_idx):
         X, y = test_batch
         y = y.type(torch.float32)
         # forward pass
         y_pred = self.forward(X).squeeze()
         # compute metrics
         loss = torch.mean(self.loss_fun(y, y_pred))
-        self.log_dict({'test_loss': loss}, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log_dict({'val_loss': loss}, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
 # def create_model(loss,
