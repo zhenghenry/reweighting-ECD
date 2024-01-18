@@ -5,7 +5,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 import torch
 import torch.nn as nn
 from inflation_all import *
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import random_split, DataLoader, TensorDataset
 # from tensorflow.keras import Sequential
 # from tensorflow.keras.layers import Dense, Input, Dropout
 # from tensorflow.keras.callbacks import EarlyStopping
@@ -104,6 +104,33 @@ class create_model(pl.LightningModule):
         self.log_dict({'val_loss': loss}, on_step=True, on_epoch=False, prog_bar=True, logger=False)
         return loss
 
+
+class reweightingDataModule(pl.LightningDataModule):
+    def __init__(self, bkgd, sgnl, N):
+        super().__init__()
+        self.bkgd = bkgd
+        self.sgnl = sgnl
+        self.N = N
+    def prepare_data(self):
+        X_train, X_test, y_train, y_test = make_data(self.bkgd, self.sgnl, self.N)
+        X_train = X_train.reshape(-1,1).astype(np.float32)
+        X_test = X_test.reshape(-1,1).astype(np.float32)
+        y_train = y_train.astype(np.float32)
+        y_test = y_test.astype(np.float32)
+
+        self.X_train = torch.from_numpy(X_train)
+        self.X_test = torch.from_numpy(X_test)
+        self.y_train = torch.from_numpy(y_train)
+        self.y_test = torch.from_numpy(y_test)
+
+        self.train_data = TensorDataset(self.X_train, self.y_train)
+        self.test_data = TensorDataset(self.X_test, self.y_test)
+    def train_dataloader(self):
+        return DataLoader(self.train_data, batch_size=int(0.1*self.N))
+    def val_dataloader(self):
+        return DataLoader(self.test_data, batch_size=int(0.1*self.N))
+
+
 # def create_model(loss,
 #                  d = 1,
 #                  hidden = 'relu', 
@@ -200,14 +227,17 @@ def train(data,
     
 #     return model, trace
 
-class trainDataSet(Dataset):
-    def __init__(self, X, y):
-        self.X = X
-        self.y = y
-    def __len__(self):
-        return len(self.X)
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
+
+
+
+# class trainDataSet(Dataset):
+#     def __init__(self, X, y):
+#         self.X = X
+#         self.y = y
+#     def __len__(self):
+#         return len(self.X)
+#     def __getitem__(self, idx):
+#         return self.X[idx], self.y[idx]
 
 def make_data(bkgd, sgnl, N_trn=10**7, N_tst=10**5):
     y_trn = stats.bernoulli.rvs(0.5, size = N_trn)
