@@ -91,7 +91,7 @@ class create_model(pl.LightningModule):
             return loss
         optimizer.step(closure)
         optimizer.zero_grad()
-        self.log_dict({'train_loss': loss}, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log_dict({'train_loss': loss}, on_step=True, on_epoch=False, prog_bar=True, logger=False)
         return loss
 
     def validation_step(self, test_batch, batch_idx):
@@ -101,7 +101,7 @@ class create_model(pl.LightningModule):
         y_pred = self.forward(X).squeeze()
         # compute metrics
         loss = torch.mean(self.loss_fun(y, y_pred))
-        self.log_dict({'val_loss': loss}, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log_dict({'val_loss': loss}, on_step=True, on_epoch=False, prog_bar=True, logger=False)
         return loss
 
 # def create_model(loss,
