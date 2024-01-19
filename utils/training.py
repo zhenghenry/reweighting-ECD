@@ -26,8 +26,38 @@ import numpy as np
 import torch
 
 
+class Net(nn.Module):
+    def __init__(self, output):
+        super().__init__()
+        self.d = 1
+        self.p = 0.05
+        self.output = output
+        self.linear1 = nn.Linear(self.d, 64)
+        self.linear2 = nn.Linear(64, 128)
+        self.linear3 = nn.Linear(128, 64)
+        self.linear4 = nn.Linear(64, self.d)
+        self.dropout1 = nn.Dropout(self.p)
+        self.dropout3 = nn.Dropout(self.p)
+        self.dropout2 = nn.Dropout(self.p)        
+    def forward(self, x):
+        x = self.linear1(x)
+        x = nn.ReLU()(x)
+        x = self.dropout1(x)
+        x = self.linear2(x)
+        x = nn.ReLU()(x)
+        x = self.dropout2(x)
+        x = self.linear3(x)
+        x = nn.ReLU()(x)
+        x = self.dropout3(x)
+        x = self.linear4(x)
+        if self.output == 'relu':
+            x = nn.ReLU()(x)
+            return x
+        if self.output == 'linear':
+            return x
+
 # Pytorch early stopping but not restoring best weights from last epoch
-earlystopping = EarlyStopping(monitor='train_loss', patience=20,
+earlystopping = EarlyStopping(monitor='val_loss', patience=10,
                               verbose=0, mode='min')
 class create_model(pl.LightningModule):
     def __init__(self, loss_fun, output, optimizer, learning_rate, eta, F0, nu):
@@ -91,7 +121,7 @@ class create_model(pl.LightningModule):
             return loss
         optimizer.step(closure)
         optimizer.zero_grad()
-        self.log_dict({'train_loss': loss}, on_step=True, on_epoch=False, prog_bar=True, logger=False)
+        # self.log_dict({'train_loss': loss}, on_step=True, on_epoch=False, prog_bar=True, logger=False)
         return loss
 
     def validation_step(self, test_batch, batch_idx):
@@ -101,7 +131,8 @@ class create_model(pl.LightningModule):
         y_pred = self.forward(X).squeeze()
         # compute metrics
         loss = torch.mean(self.loss_fun(y, y_pred))
-        self.log_dict({'val_loss': loss}, on_step=True, on_epoch=False, prog_bar=True, logger=False)
+        # self.log_dict({'val_loss': loss}, on_step=True, on_epoch=False, prog_bar=True, logger=False)
+        self.log('val_loss', loss)
         return loss
 
 
@@ -131,31 +162,6 @@ class reweightingDataModule(pl.LightningDataModule):
         return DataLoader(self.test_data, batch_size=int(0.1*self.N))
 
 
-# def create_model(loss,
-#                  d = 1,
-#                  hidden = 'relu', 
-#                  output = 'sigmoid', 
-#                  dropout = True, 
-#                  optimizer = 'adam', 
-#                  metrics = ['accuracy'], 
-#                  verbose = 0):
-#     model = Sequential()
-#     if dropout:
-#         p = 0.05 #64, 128, 64
-#         model.add(Dense(64, activation=hidden, input_shape=(d, )))
-#         model.add(Dropout(p))
-#         model.add(Dense(128, activation=hidden))
-#         model.add(Dropout(p))
-#         model.add(Dense(64, activation=hidden))
-#         model.add(Dropout(p))
-#         model.add(Dense(1, activation=output))
-#     else: 
-#         model.add(Dense(64, activation=hidden, input_shape=(d, )))
-#         model.add(Dense(128, activation=hidden))
-#         model.add(Dense(64, activation=hidden))
-#         model.add(Dense(1, activation=output))        
-    
-#     return model
 
 
 def train(data, 
@@ -189,55 +195,7 @@ def train(data,
     
     return model, trace
 
-# def create_simple_model(loss,
-#                         activation = 'sigmoid', 
-#                         optimizer = 'adam', 
-#                         metrics = ['accuracy'], 
-#                         verbose = 0):
-#     model = Sequential()
-#     model.add(Dense(1, activation=activation, input_shape=(1, )))      
-#     return model
 
-# def train_simple(data, 
-#                  loss,
-#                  activation = 'sigmoid',
-#                  optimizer = 'adam', 
-#                  metrics = ['accuracy'], 
-#                  verbose = 0):
-    
-#     X_train, X_test, y_train, y_test = data
-    
-#     N = len(X_train) + len(X_test)
-    
-#     model = create_simple_model(loss, activation, optimizer, metrics, verbose)      
-    
-#     model.compile(loss = loss,
-#                   optimizer = optimizer, 
-#                   metrics = metrics)
-    
-#     trace = model.fit(X_train, 
-#                       y_train,
-#                       epochs = 100, 
-#                       batch_size = int(0.1*N), 
-#                       validation_data = (X_test, y_test),
-#                       callbacks = [earlystopping], 
-#                       verbose = verbose)
-#     print(trace.history['val_loss'][-1], '\t', len(trace.history['val_loss']), end = '\t')
-#     print(model.get_weights()[0].flatten()[0], '\t', model.get_weights()[1].flatten()[0], end = '\t')
-    
-#     return model, trace
-
-
-
-
-# class trainDataSet(Dataset):
-#     def __init__(self, X, y):
-#         self.X = X
-#         self.y = y
-#     def __len__(self):
-#         return len(self.X)
-#     def __getitem__(self, idx):
-#         return self.X[idx], self.y[idx]
 
 def make_data(bkgd, sgnl, N_trn=10**7, N_tst=10**5):
     y_trn = stats.bernoulli.rvs(0.5, size = N_trn)
